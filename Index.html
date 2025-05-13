@@ -21,7 +21,7 @@
   }
   @font-face {
   font-family: 'GitaLian';
-  src: url('assets/fonts/GitaLian.otf') format('opentype');
+  src: url('./GitaLian.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
 }
@@ -716,7 +716,7 @@ const resolvedName = email === "ivenage@gmail.com" ? "Isaac" : email === "andrea
     document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
     document.querySelector(`.nav-link[data-page="${lastPage}"]`)?.classList.add("active");
    
-  import('./assets/js/main.js').then(module => {
+  import('./main.js').then(module => {
       module.initSetupFormSync(user);
       module.initDashboardView(user);
       module.initTimelineTasks(user);
