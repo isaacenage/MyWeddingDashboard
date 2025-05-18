@@ -495,7 +495,6 @@ function getTaskColor(task) {
   fetchTasksAndRender();
 }
 
-// === CONTACT MODULE ===
 export function initContactModule(user) {
   const db = firebase.database();
   const uid = user.uid;
@@ -506,6 +505,36 @@ export function initContactModule(user) {
 
   const contactTable = document.getElementById('contactTableBody');
   const vendorTable = document.getElementById('vendorTableBody');
+
+  // === Inline Edit Handler ===
+  const attachInlineEdit = (td, path, key, isPrice = false) => {
+    td.setAttribute('contenteditable', 'true');
+    td.classList.add('hover:underline', 'cursor-pointer');
+
+    td.addEventListener('focus', () => {
+      if (isPrice) {
+        td.innerText = td.innerText.replace(/[₱,]/g, '').trim();
+      }
+    });
+
+    td.addEventListener('blur', () => {
+      let newValue = td.innerText.trim();
+      if (isPrice) {
+        const num = parseFloat(newValue.replace(/[^\d.]/g, '')) || 0;
+        firebase.database().ref(path).child(key).set(num);
+        td.innerText = `₱${num.toLocaleString()}`;
+      } else {
+        firebase.database().ref(path).child(key).set(newValue);
+      }
+    });
+
+    td.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        td.blur();
+      }
+    });
+  };
 
   // === Add Contact ===
   window.addContact = () => {
@@ -555,63 +584,74 @@ export function initContactModule(user) {
     document.getElementById('vendorPrice').value = '';
   };
 
-  // === Delete Handlers
-  window.deleteContact = (id) => {
-    if (confirm("Delete this contact?")) {
-      contactRef.child(id).remove();
-    }
+  // === Delete Handlers ===
+  window.deleteContact = id => {
+    if (confirm("Delete this contact?")) contactRef.child(id).remove();
   };
 
-  window.deleteVendor = (id) => {
-    if (confirm("Delete this vendor?")) {
-      vendorRef.child(id).remove();
-    }
+  window.deleteVendor = id => {
+    if (confirm("Delete this vendor?")) vendorRef.child(id).remove();
   };
 
-  // === Render Contact Table
-  contactRef.on("value", snap => {
+  // === Render Contact Table ===
+  contactRef.on('value', snap => {
     const data = snap.val() || {};
     contactTable.innerHTML = '';
 
     Object.entries(data).forEach(([id, c]) => {
       const row = document.createElement('tr');
-      row.innerHTML = `
-        <td class="p-2">${c.name}</td>
-        <td class="p-2">${c.relationship}</td>
-        <td class="p-2">${c.contact1}</td>
-        <td class="p-2">${c.contact2 || ''}</td>
-        <td class="p-2">${c.email || ''}</td>
-        <td class="p-2 text-center">
-          <i class="fas fa-trash-alt text-[#cdb4db] cursor-pointer" onclick="deleteContact('${id}')"></i>
-        </td>
-      `;
+
+      const fields = ['name', 'relationship', 'contact1', 'contact2', 'email'];
+      fields.forEach(field => {
+        const td = document.createElement('td');
+        td.className = 'p-2';
+        td.innerText = c[field] || '';
+        attachInlineEdit(td, `contacts/${uid}/${id}`, field);
+        row.appendChild(td);
+      });
+
+      const delTd = document.createElement('td');
+      delTd.className = 'p-2 text-center';
+      delTd.innerHTML = `<i class="fas fa-trash-alt text-[#cdb4db] cursor-pointer" onclick="deleteContact('${id}')"></i>`;
+      row.appendChild(delTd);
+
       contactTable.appendChild(row);
     });
   });
 
-  // === Render Vendor Table
-  vendorRef.on("value", snap => {
+  // === Render Vendor Table ===
+  vendorRef.on('value', snap => {
     const data = snap.val() || {};
     vendorTable.innerHTML = '';
 
     Object.entries(data).forEach(([id, v]) => {
       const row = document.createElement('tr');
-      row.innerHTML = `
-        <td class="p-2">${v.type}</td>
-        <td class="p-2">${v.name}</td>
-        <td class="p-2">${v.contact}</td>
-        <td class="p-2">${v.email || ''}</td>
-        <td class="p-2">${v.package || ''}</td>
-        <td class="p-2 text-right">₱${Number(v.price || 0).toLocaleString()}</td>
-        <td class="p-2 text-center">
-          <i class="fas fa-trash-alt text-[#cdb4db] cursor-pointer" onclick="deleteVendor('${id}')"></i>
-        </td>
-      `;
+
+      const fields = ['type', 'name', 'contact', 'email', 'package'];
+      fields.forEach(field => {
+        const td = document.createElement('td');
+        td.className = 'p-2';
+        td.innerText = v[field] || '';
+        attachInlineEdit(td, `vendors/${uid}/${id}`, field);
+        row.appendChild(td);
+      });
+
+      const priceTd = document.createElement('td');
+      priceTd.className = 'p-2 text-right';
+      priceTd.innerText = `₱${Number(v.price || 0).toLocaleString()}`;
+      attachInlineEdit(priceTd, `vendors/${uid}/${id}`, 'price', true);
+      row.appendChild(priceTd);
+
+      const delTd = document.createElement('td');
+      delTd.className = 'p-2 text-center';
+      delTd.innerHTML = `<i class="fas fa-trash-alt text-[#cdb4db] cursor-pointer" onclick="deleteVendor('${id}')"></i>`;
+      row.appendChild(delTd);
+
       vendorTable.appendChild(row);
     });
   });
 
-  // === Populate dropdowns from Setup > tags
+  // === Populate Dropdowns ===
   setupRef.once('value').then(snap => {
     const setup = snap.val() || {};
     const accoms = setup.accommodations || [];
@@ -641,6 +681,7 @@ export function initContactModule(user) {
     }
   });
 }
+
 
 // === CHECKLIST MODULE ===
 export function initChecklistModule(user) {
@@ -734,7 +775,6 @@ export function initChecklistModule(user) {
   });
 }
 
-// === BUDGET MODULE ===
 export function initBudgetModule(user) {
   const db = firebase.database();
   const uid = user.uid;
@@ -748,6 +788,34 @@ export function initBudgetModule(user) {
   const vendorTypeSelect = document.getElementById('expenseVendorType');
 
   if (!contributionList || !expenseTable || !vendorTypeSelect) return;
+
+  // === Editable Cell Helper
+  const attachInlineEdit = (td, path, key, isPrice = false) => {
+    td.setAttribute('contenteditable', 'true');
+    td.classList.add('hover:underline', 'cursor-pointer');
+
+    td.addEventListener('focus', () => {
+      if (isPrice) td.innerText = td.innerText.replace(/[₱,]/g, '').trim();
+    });
+
+    td.addEventListener('blur', () => {
+      let val = td.innerText.trim();
+      if (isPrice) {
+        const num = parseFloat(val.replace(/[^\d.]/g, '')) || 0;
+        firebase.database().ref(path).child(key).set(num);
+        td.innerText = `₱${num.toLocaleString()}`;
+      } else {
+        firebase.database().ref(path).child(key).set(val);
+      }
+    });
+
+    td.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        td.blur();
+      }
+    });
+  };
 
   // === Add contribution
   window.addContributor = () => {
@@ -787,29 +855,35 @@ export function initBudgetModule(user) {
   };
 
   // === Delete expense
-  window.deleteBudgetItem = (id) => {
-    if (confirm('Delete this expense?')) {
-      expenseRef.child(id).remove();
-    }
+  window.deleteBudgetItem = id => {
+    if (confirm('Delete this expense?')) expenseRef.child(id).remove();
   };
 
   // === Refresh all data
   function refreshBudget() {
-    Promise.all([
-      contribRef.once('value'),
-      expenseRef.once('value')
-    ]).then(([contribSnap, expenseSnap]) => {
+    Promise.all([contribRef.once('value'), expenseRef.once('value')]).then(([contribSnap, expenseSnap]) => {
       const contributions = contribSnap.val() || {};
       const expenses = expenseSnap.val() || {};
 
       // Contributions
       contributionList.innerHTML = '';
       let budgetTotal = 0;
-      Object.values(contributions).forEach(c => {
-        budgetTotal += Number(c.amount || 0);
+      Object.entries(contributions).forEach(([id, c]) => {
         const row = document.createElement('div');
-        row.className = 'flex justify-between bg-[#ffe5ec] p-2 rounded';
-        row.innerHTML = `<span>${c.name}</span><span>₱${Number(c.amount).toLocaleString()}</span>`;
+        row.className = 'flex justify-between bg-[#ffe5ec] p-2 rounded gap-4';
+
+        const nameEl = document.createElement('span');
+        nameEl.innerText = c.name || '';
+        attachInlineEdit(nameEl, `budgetContributions/${uid}/${id}`, 'name');
+
+        const amtEl = document.createElement('span');
+        const amount = Number(c.amount || 0);
+        budgetTotal += amount;
+        amtEl.innerText = `₱${amount.toLocaleString()}`;
+        attachInlineEdit(amtEl, `budgetContributions/${uid}/${id}`, 'amount', true);
+
+        row.appendChild(nameEl);
+        row.appendChild(amtEl);
         contributionList.appendChild(row);
       });
       document.getElementById('weddingBudgetTotal').textContent = `₱${budgetTotal.toLocaleString()}`;
@@ -824,27 +898,47 @@ export function initBudgetModule(user) {
         totalBalance += balance;
 
         const row = document.createElement('tr');
-        row.innerHTML = `
-          <td class="p-2">${e.date}</td>
-          <td class="p-2">${e.vendorType}</td>
-          <td class="p-2">${e.vendor}</td>
-          <td class="p-2">${e.paidBy}</td>
-          <td class="p-2 text-right">₱${Number(e.contract).toLocaleString()}</td>
-          <td class="p-2 text-right">₱${Number(e.paid).toLocaleString()}</td>
-          <td class="p-2 text-right">₱${balance.toLocaleString()}</td>
-          <td class="p-2 text-center cursor-pointer" style="color: #cdb4db;" onclick="deleteBudgetItem('${id}')">Delete</td>
-        `;
+
+        const fields = [
+          { key: 'date', value: e.date },
+          { key: 'vendorType', value: e.vendorType },
+          { key: 'vendor', value: e.vendor },
+          { key: 'paidBy', value: e.paidBy },
+          { key: 'contract', value: `₱${Number(e.contract).toLocaleString()}`, isPrice: true },
+          { key: 'paid', value: `₱${Number(e.paid).toLocaleString()}`, isPrice: true }
+        ];
+
+        fields.forEach(f => {
+          const td = document.createElement('td');
+          td.className = f.key === 'contract' || f.key === 'paid' ? 'p-2 text-right' : 'p-2';
+          td.innerText = f.value || '';
+          attachInlineEdit(td, `budgetExpenses/${uid}/${id}`, f.key, f.isPrice || false);
+          row.appendChild(td);
+        });
+
+        const balTd = document.createElement('td');
+        balTd.className = 'p-2 text-right';
+        balTd.innerText = `₱${balance.toLocaleString()}`;
+        row.appendChild(balTd);
+
+        const delTd = document.createElement('td');
+        delTd.className = 'p-2 text-center cursor-pointer';
+        delTd.style.color = '#cdb4db';
+        delTd.innerText = 'Delete';
+        delTd.onclick = () => deleteBudgetItem(id);
+        row.appendChild(delTd);
+
         expenseTable.appendChild(row);
       });
 
-      // Summary display
+      // Summary
       document.getElementById('budgetPaid').textContent = `₱${paidTotal.toLocaleString()}`;
       document.getElementById('budgetLeftToPay').textContent = `₱${totalBalance.toLocaleString()}`;
       document.getElementById('budgetLeftFromBudget').textContent = `₱${(budgetTotal - totalBalance).toLocaleString()}`;
     });
   }
 
-  // === Populate dropdown from Setup > Accommodations
+  // === Populate Vendor Type Dropdown
   function populateVendorTypes() {
     accomRef.once('value').then(snapshot => {
       const types = snapshot.val() || [];
